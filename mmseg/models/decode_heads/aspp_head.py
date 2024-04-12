@@ -62,10 +62,11 @@ class ASPPHead(BaseDecodeHead):
             Default: (1, 6, 12, 18).
     """
 
-    def __init__(self, dilations=(1, 6, 12, 18), **kwargs):
+    def __init__(self, dilations=(1, 6, 12, 18), contrast=False, **kwargs):
         super().__init__(**kwargs)
         assert isinstance(dilations, (list, tuple))
         self.dilations = dilations
+        self.contrast = contrast
         self.image_pool = nn.Sequential(
             nn.AdaptiveAvgPool2d(1),
             ConvModule(
@@ -90,6 +91,11 @@ class ASPPHead(BaseDecodeHead):
             conv_cfg=self.conv_cfg,
             norm_cfg=self.norm_cfg,
             act_cfg=self.act_cfg)
+        if self.contrast:
+            self.contrast_conv = nn.Sequential(
+                nn.Conv2d(self.channels, self.channels, 1),
+                nn.ReLU(),
+                nn.Conv2d(self.channels, 128, 1))
 
     def _forward_feature(self, inputs):
         """Forward function for feature maps before classifying each pixel with
@@ -118,5 +124,8 @@ class ASPPHead(BaseDecodeHead):
     def forward(self, inputs):
         """Forward function."""
         output = self._forward_feature(inputs)
-        output = self.cls_seg(output)
+        if self.contrast:
+            output = self.contrast_conv(output)
+        else:
+            output = self.cls_seg(output)
         return output
